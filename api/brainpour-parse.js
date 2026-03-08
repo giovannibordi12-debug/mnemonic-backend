@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { text, wakeHour, wakeMinute, windDownHour, windDownMinute, energyPattern, goals, currentHour: clientHour, currentMinute: clientMinute } = req.body;
+    const { text, wakeHour, wakeMinute, windDownHour, windDownMinute, energyPattern, goals, currentHour: clientHour, currentMinute: clientMinute, clarifyAnswers } = req.body;
 
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'No brain dump text provided' });
@@ -70,6 +70,14 @@ Example output:
   {"title": "Gaming session", "category": "leisure", "estimatedMinutes": 60, "scheduledHour": 20, "scheduledMinute": 15}
 ]`;
 
+    // Build clarify context if answers were provided
+    let clarifyContext = '';
+    if (clarifyAnswers && Array.isArray(clarifyAnswers) && clarifyAnswers.length > 0) {
+      clarifyContext = '\n\nThe user also answered these clarifying questions:\n' +
+        clarifyAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join('\n') +
+        '\n\nUse these answers to make the schedule more personalized. If they said a task is top priority, schedule it at peak energy time. If they said they are tired, schedule lighter tasks first. If they specified a duration, use that exact duration.';
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -84,7 +92,7 @@ Example output:
         messages: [
           {
             role: 'user',
-            content: `Here is my brain dump for today:\n\n${text}`,
+            content: `Here is my brain dump for today:\n\n${text}${clarifyContext}`,
           },
         ],
       }),
