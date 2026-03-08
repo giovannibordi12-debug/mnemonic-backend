@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
 
   content.push({
     type: 'text',
-    text: 'You are an expert educator. Generate exactly ' + (count || 10) + ' high-quality flashcards from the content provided.\n\nEach card should have a clear question and a thorough 2-4 sentence answer.\nRespond ONLY with a JSON array, no markdown or preamble:\n[{"q":"question","a":"answer","tag":"topic tag"},...]\n\nContent:\n' + (text || 'Use the images provided.')
+    text: 'You are an expert educator. Generate exactly ' + (count || 10) + ' high-quality flashcards from the content provided.\n\nEach card should have a clear, concise question and a short answer of maximum 2 sentences. Answers must be under 40 words. Be direct and punchy — no unnecessary elaboration.\nRespond ONLY with a JSON array, no markdown or preamble:\n[{"q":"question","a":"answer","tag":"topic tag"},...]\n\nContent:\n' + (text || 'Use the images provided.')
   })
 
   try {
