@@ -8,16 +8,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { text, wakeHour, wakeMinute, windDownHour, windDownMinute, energyPattern, goals } = req.body;
+    const { text, wakeHour, wakeMinute, windDownHour, windDownMinute, energyPattern, goals, currentHour: clientHour, currentMinute: clientMinute } = req.body;
 
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'No brain dump text provided' });
     }
 
-    // Get current time for context
+    // Use client-provided time (local timezone) if available, otherwise fall back to server time
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const currentHour = clientHour !== undefined ? clientHour : now.getHours();
+    const currentMinute = clientMinute !== undefined ? clientMinute : now.getMinutes();
 
     const systemPrompt = `You are a daily planning AI assistant called BrainPour. The user will give you a messy brain dump of everything on their mind today. Your job is to parse it into individual tasks, categorize them, estimate durations, and schedule them into a realistic daily calendar.
 
@@ -37,6 +37,7 @@ RULES:
 
 3. TIME SCHEDULING:
    - NEVER schedule tasks before the current time (${currentHour}:${String(currentMinute).padStart(2, '0')}). If it's 5pm, the earliest task starts at 5pm.
+   - If the user says "in X minutes" or "in X hours", calculate the actual time from the current time (${currentHour}:${String(currentMinute).padStart(2, '0')}).
    - If the user mentions a specific time, respect it exactly.
    - Schedule harder casual tasks during the user's peak energy time.
    - Place leisure tasks as rewards after completing hard blocks.
