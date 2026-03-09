@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
     let learningSection = '';
     if (learningContext && learningContext.trim().length > 0) {
-      learningSection = `\nPERSONALISED INSTRUCTIONS (follow precisely):\n${learningContext}\n`;
+      learningSection = `\nPERSONALISED INSTRUCTIONS (from past days — follow these BUT never override the current time constraint above):\n${learningContext}\nIMPORTANT: If these instructions suggest a time that is BEFORE the current time (${currentHour}:${String(currentMinute).padStart(2, '0')}), adapt the suggestion to the nearest available time AFTER now.\n`;
     }
 
     const taskOrderRule = {
@@ -57,14 +57,22 @@ GOALS: ${goalList.join(', ') || 'not specified'}
 ${goalSection}${learningSection}
 TASK CLASSIFICATION:
 - SCHEDULED TASKS (go on the calendar with a time slot): Tasks that need a dedicated block of time — studying, gym, cooking, meetings, watching a match, gaming sessions, deep work. These get a specific hour and duration.
-- QUICK TASKS (go on the to-do list, NOT the calendar): Small tasks under 15 minutes that can be done anytime between other things — "call mom", "reply to email", "text Sarah", "buy milk", "check bank balance", "send invoice". These don't need a time slot. The user checks them off whenever they find a gap.
+- QUICK TASKS (go on the to-do list, NOT the calendar): Small tasks under 15 minutes that can be done anytime between other things — "call mom", "reply to email", "text Sarah", "buy milk", "check bank balance", "send invoice", "meet parents" (brief meetup). These don't need a time slot. The user checks them off whenever they find a gap.
 
 RULE: If a task takes under 15 minutes AND has no specific time mentioned, it is a QUICK TASK. If in doubt, make it a quick task — it's less overwhelming on the calendar.
 
-SCHEDULING RULES:
-1. Split into INDIVIDUAL tasks. "Study math and revise finance" = TWO tasks.
+CRITICAL SCHEDULING RULES (in order of priority):
+
+RULE 0 — ABSOLUTE TIME CONSTRAINT: NEVER schedule ANY task before ${currentHour}:${String(currentMinute).padStart(2, '0')}. This rule OVERRIDES all other rules including learning patterns and energy preferences. If learning data says "schedule gym in the morning" but it's currently 5pm, schedule gym AFTER 5pm. The current time constraint is UNBREAKABLE.
+
+RULE 1 — TASK SPLITTING: ALWAYS split the brain dump into INDIVIDUAL, SEPARATE tasks. EVERY distinct activity is its own task. Examples:
+- "call mom and go to gym" = "Call mom" (QUICK TASK) + "Gym" (SCHEDULED at 45-60min)
+- "study math and revise finance" = "Math study" + "Finance revision"
+- "need groceries and cook dinner" = "Grocery shopping" + "Cook dinner"
+NEVER combine two activities into one task. Even if the user writes them in one sentence, split them.
+
 2. FIXED: has a specific time — keep exactly. CASUAL: obligation tasks — you choose time. LEISURE: enjoyment tasks — place as rewards.
-3. Never schedule before current time. Peak energy for hardest tasks. 10-15 min buffers between intense tasks.
+3. Peak energy for hardest tasks, but ONLY if peak hours are AFTER current time. 10-15 min buffers between intense tasks.
 4. ${taskOrderRule}
 5. Durations: study=45-60min, deep work=60-90min, gym=45-60min, movie=90-120min, gaming=60min, meals=30-45min, shopping=30-45min, cooking=30-45min.
 6. Task titles: concise. "I need to do some quick revision on finance exam" → "Finance exam revision"
