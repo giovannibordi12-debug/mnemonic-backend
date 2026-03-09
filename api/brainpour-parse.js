@@ -42,40 +42,43 @@ export default async function handler(req, res) {
       learningSection = `\nPERSONALISED INSTRUCTIONS (follow precisely):\n${learningContext}\n`;
     }
 
-    // Task order preference → concrete scheduling instruction
     const taskOrderRule = {
-      'Hard first': 'TASK ORDER: Schedule the most demanding/effortful casual tasks at the START of the peak energy window. Easier tasks and leisure come after. The user wants to tackle hard things while fresh and reward themselves later.',
-      'Easy first': 'TASK ORDER: Schedule 1-2 quick easy tasks at the very start of the day to build momentum, THEN move into harder tasks during peak energy. The user needs a warm-up before going deep.',
-      'Mix it up': 'TASK ORDER: Alternate between demanding and lighter tasks throughout the day. Never stack 2+ hard tasks back to back. Always follow an intense task with something easier to maintain steady energy.',
+      'Hard first': 'TASK ORDER: Schedule the most demanding/effortful casual tasks at the START of the peak energy window. Easier tasks and leisure come after.',
+      'Easy first': 'TASK ORDER: Schedule 1-2 quick easy tasks at the very start of the day to build momentum, THEN move into harder tasks during peak energy.',
+      'Mix it up': 'TASK ORDER: Alternate between demanding and lighter tasks throughout the day. Never stack 2+ hard tasks back to back.',
     }[taskOrderPreference] || 'TASK ORDER: Schedule the most demanding tasks during peak energy hours.';
 
-    const systemPrompt = `You are BrainPour, a daily planning AI. Parse the user's brain dump into a scheduled day AND write a short warm explanation of your key scheduling decisions.
+    const systemPrompt = `You are BrainPour, a daily planning AI. Parse the user's brain dump into THREE categories: scheduled tasks (for the calendar), quick tasks (for the to-do list), and write a short warm explanation.
 
 CURRENT TIME: ${currentHour}:${String(currentMinute).padStart(2, '0')}
 SCHEDULE WINDOW: ${wakeHour || 7}:${String(wakeMinute || 0).padStart(2, '0')} to ${windDownHour || 22}:${String(windDownMinute || 0).padStart(2, '0')}
 ENERGY PATTERN: ${peakWindow.label} person — peak window is ${peakWindow.range}
 GOALS: ${goalList.join(', ') || 'not specified'}
 ${goalSection}${learningSection}
+TASK CLASSIFICATION:
+- SCHEDULED TASKS (go on the calendar with a time slot): Tasks that need a dedicated block of time — studying, gym, cooking, meetings, watching a match, gaming sessions, deep work. These get a specific hour and duration.
+- QUICK TASKS (go on the to-do list, NOT the calendar): Small tasks under 15 minutes that can be done anytime between other things — "call mom", "reply to email", "text Sarah", "buy milk", "check bank balance", "send invoice". These don't need a time slot. The user checks them off whenever they find a gap.
+
+RULE: If a task takes under 15 minutes AND has no specific time mentioned, it is a QUICK TASK. If in doubt, make it a quick task — it's less overwhelming on the calendar.
+
 SCHEDULING RULES:
 1. Split into INDIVIDUAL tasks. "Study math and revise finance" = TWO tasks.
-2. FIXED: has a specific time mentioned — keep exactly. CASUAL: obligation tasks — you choose time. LEISURE: enjoyment tasks — place as rewards after productive blocks.
+2. FIXED: has a specific time — keep exactly. CASUAL: obligation tasks — you choose time. LEISURE: enjoyment tasks — place as rewards.
 3. Never schedule before current time. Peak energy for hardest tasks. 10-15 min buffers between intense tasks.
 4. ${taskOrderRule}
-5. Durations: calls/email=10-15min, shopping/cooking=30-45min, study=45-60min, deep work=60-90min, gym=45-60min, movie=90-120min, gaming=60min, meals=30-45min.
+5. Durations: study=45-60min, deep work=60-90min, gym=45-60min, movie=90-120min, gaming=60min, meals=30-45min, shopping=30-45min, cooking=30-45min.
 6. Task titles: concise. "I need to do some quick revision on finance exam" → "Finance exam revision"
 
-RETURN FORMAT — respond with ONLY a valid JSON object with two fields:
+RETURN FORMAT — respond with ONLY a valid JSON object:
 {
-  "tasks": [ array of task objects ],
-  "reasoning": "2-4 sentence warm explanation of your key decisions. Reference specific tasks by name. Mention why you placed things when you did. End with something encouraging. Keep it conversational, not robotic."
+  "tasks": [
+    {"title": "string", "category": "fixed|casual|leisure", "estimatedMinutes": number, "scheduledHour": number, "scheduledMinute": number}
+  ],
+  "quickTasks": [
+    {"title": "string", "category": "casual|leisure"}
+  ],
+  "reasoning": "2-4 sentence warm explanation. Reference specific tasks. Mention why you placed things when you did."
 }
-
-Each task object must have exactly:
-- "title": string
-- "category": "fixed" | "casual" | "leisure"
-- "estimatedMinutes": number
-- "scheduledHour": number (0-23)
-- "scheduledMinute": number (0-59)
 
 No markdown, no code fences. Only the JSON object.`;
 
@@ -122,6 +125,7 @@ No markdown, no code fences. Only the JSON object.`;
 
     const parsed = JSON.parse(cleanContent);
     const tasks = Array.isArray(parsed) ? parsed : (parsed.tasks || []);
+    const quickTasks = parsed.quickTasks || [];
     const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : null;
 
     if (!Array.isArray(tasks)) return res.status(500).json({ error: 'Invalid AI response format' });
@@ -136,7 +140,12 @@ No markdown, no code fences. Only the JSON object.`;
 
     validatedTasks.sort((a, b) => (a.scheduledHour * 60 + a.scheduledMinute) - (b.scheduledHour * 60 + b.scheduledMinute));
 
-    return res.status(200).json({ tasks: validatedTasks, reasoning });
+    const validatedQuickTasks = quickTasks.map((t) => ({
+      title: String(t.title || 'Untitled'),
+      category: ['casual', 'leisure'].includes(t.category) ? t.category : 'casual',
+    }));
+
+    return res.status(200).json({ tasks: validatedTasks, quickTasks: validatedQuickTasks, reasoning });
 
   } catch (error) {
     console.error('Parse error:', error);
