@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   try {
     const {
       text, wakeHour, wakeMinute, windDownHour, windDownMinute,
-      energyPattern, goals,
+      energyPattern, goals, taskOrderPreference,
       currentHour: clientHour, currentMinute: clientMinute,
       clarifyAnswers, learningContext
     } = req.body;
@@ -42,6 +42,13 @@ export default async function handler(req, res) {
       learningSection = `\nPERSONALISED INSTRUCTIONS (follow precisely):\n${learningContext}\n`;
     }
 
+    // Task order preference → concrete scheduling instruction
+    const taskOrderRule = {
+      'Hard first': 'TASK ORDER: Schedule the most demanding/effortful casual tasks at the START of the peak energy window. Easier tasks and leisure come after. The user wants to tackle hard things while fresh and reward themselves later.',
+      'Easy first': 'TASK ORDER: Schedule 1-2 quick easy tasks at the very start of the day to build momentum, THEN move into harder tasks during peak energy. The user needs a warm-up before going deep.',
+      'Mix it up': 'TASK ORDER: Alternate between demanding and lighter tasks throughout the day. Never stack 2+ hard tasks back to back. Always follow an intense task with something easier to maintain steady energy.',
+    }[taskOrderPreference] || 'TASK ORDER: Schedule the most demanding tasks during peak energy hours.';
+
     const systemPrompt = `You are BrainPour, a daily planning AI. Parse the user's brain dump into a scheduled day AND write a short warm explanation of your key scheduling decisions.
 
 CURRENT TIME: ${currentHour}:${String(currentMinute).padStart(2, '0')}
@@ -49,23 +56,23 @@ SCHEDULE WINDOW: ${wakeHour || 7}:${String(wakeMinute || 0).padStart(2, '0')} to
 ENERGY PATTERN: ${peakWindow.label} person — peak window is ${peakWindow.range}
 GOALS: ${goalList.join(', ') || 'not specified'}
 ${goalSection}${learningSection}
-
 SCHEDULING RULES:
 1. Split into INDIVIDUAL tasks. "Study math and revise finance" = TWO tasks.
 2. FIXED: has a specific time mentioned — keep exactly. CASUAL: obligation tasks — you choose time. LEISURE: enjoyment tasks — place as rewards after productive blocks.
 3. Never schedule before current time. Peak energy for hardest tasks. 10-15 min buffers between intense tasks.
-4. Durations: calls/email=10-15min, shopping/cooking=30-45min, study=45-60min, deep work=60-90min, gym=45-60min, movie=90-120min, gaming=60min, meals=30-45min.
-5. Task titles: concise. "I need to do some quick revision on finance exam" → "Finance exam revision"
+4. ${taskOrderRule}
+5. Durations: calls/email=10-15min, shopping/cooking=30-45min, study=45-60min, deep work=60-90min, gym=45-60min, movie=90-120min, gaming=60min, meals=30-45min.
+6. Task titles: concise. "I need to do some quick revision on finance exam" → "Finance exam revision"
 
 RETURN FORMAT — respond with ONLY a valid JSON object with two fields:
 {
   "tasks": [ array of task objects ],
-  "reasoning": "2-4 sentence warm explanation of your key decisions. Reference specific tasks by name. Mention why you placed things when you did. End with something encouraging. Keep it conversational, not robotic. Example: 'I put your gym session first thing since you're a morning person — best to move while the energy is high. Your doctor's appointment is locked at 3pm so I built the rest of the day around that. Spaced your study session after lunch with a short break before it. You've got a solid day ahead!'"
+  "reasoning": "2-4 sentence warm explanation of your key decisions. Reference specific tasks by name. Mention why you placed things when you did. End with something encouraging. Keep it conversational, not robotic."
 }
 
 Each task object must have exactly:
 - "title": string
-- "category": "fixed" | "casual" | "leisure"  
+- "category": "fixed" | "casual" | "leisure"
 - "estimatedMinutes": number
 - "scheduledHour": number (0-23)
 - "scheduledMinute": number (0-59)
@@ -114,8 +121,6 @@ No markdown, no code fences. Only the JSON object.`;
     cleanContent = cleanContent.trim();
 
     const parsed = JSON.parse(cleanContent);
-
-    // Support both old array format and new object format
     const tasks = Array.isArray(parsed) ? parsed : (parsed.tasks || []);
     const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : null;
 
