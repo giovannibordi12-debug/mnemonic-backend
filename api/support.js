@@ -13,7 +13,7 @@ module.exports = function handler(req, res) {
       <h2 style="font-size:1.1rem;margin-bottom:12px">Support</h2>
       <p style="color:#c0beb8;line-height:1.6">For help, questions, or feedback about Mnemonic, please get in touch:</p>
       <p style="margin-top:20px">
-        <a href="mailto:giovannibordi12@gmail.com" style="color:#e8c97a">your@email.com</a>
+        <a href="mailto:giovannibordi12@gmail.com" style="color:#e8c97a">giovanni.bordi@gmail.com</a>
       </p>
       <p style="color:#8a8a9a;font-size:0.8rem;margin-top:60px">© 2026 Giovanni Bordi</p>
     </body>
